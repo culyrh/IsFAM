@@ -141,7 +141,7 @@ def load_audio_as_mono_16k(
     try:
         waveform, sample_rate = torchaudio.load(str(input_path))
     except Exception as exc:
-        logger.exception("Failed to decode audio file: %s", input_path)
+        logger.info("torchaudio decode failed for %s: %s", input_path, exc)
         raise AudioDecodingError("failed to decode audio with torchaudio") from exc
 
     if waveform.numel() == 0:

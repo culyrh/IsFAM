@@ -20,8 +20,20 @@ class Settings:
     cors_allowed_origins: Tuple[str, ...] = (
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
         "capacitor://localhost",
         "ionic://localhost",
+    )
+    cors_allowed_origin_regex: str | None = (
+        r"^https?://("
+        r"localhost|"
+        r"127\.0\.0\.1|"
+        r"10\.0\.2\.2|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|"
+        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
+        r")(:\d+)?$"
     )
 
     # SpeechBrain ECAPA-TDNN model published on Hugging Face.
@@ -172,10 +184,29 @@ def get_settings() -> Settings:
             (
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174",
                 "capacitor://localhost",
                 "ionic://localhost",
             ),
             dotenv_values,
+        ),
+        cors_allowed_origin_regex=(
+            _get_env(
+                "VOICEKIN_CORS_ALLOWED_ORIGIN_REGEX",
+                (
+                    r"^https?://("
+                    r"localhost|"
+                    r"127\.0\.0\.1|"
+                    r"10\.0\.2\.2|"
+                    r"192\.168\.\d{1,3}\.\d{1,3}|"
+                    r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+                    r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
+                    r")(:\d+)?$"
+                ),
+                dotenv_values,
+            )
+            or None
         ),
         speaker_model_name=_get_env(
             "VOICEKIN_SPEAKER_MODEL_NAME",

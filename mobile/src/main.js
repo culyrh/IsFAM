@@ -1,5 +1,12 @@
 import "./styles.css";
 
+const STATUS_ASSETS = {
+  judgment: "/assets/judgment.png",
+  detect: "/assets/detect.png",
+  safety: "/assets/safety.png",
+};
+const STRONG_SPOOF_SCORE = 0.35;
+
 function getDefaultApiBase() {
   const { protocol, hostname } = window.location;
 
@@ -17,21 +24,27 @@ function getInitialApiBase() {
   const { protocol, hostname } = window.location;
   const isLocalWebPreview =
     protocol === "http:" && (hostname === "127.0.0.1" || hostname === "localhost");
+  const isNetworkWebPreview =
+    protocol === "http:" && hostname && hostname !== "127.0.0.1" && hostname !== "localhost";
   const isAndroidAppPreview = protocol === "https:" && hostname === "localhost";
 
   if (!savedApiBase) {
     return getDefaultApiBase();
   }
-
-  // 웹 미리보기에서 Android 에뮬레이터용 주소가 저장되어 있으면 서버 연결이 실패한다.
-  // 반대로 Android 앱에서는 PC 브라우저용 127.0.0.1 주소가 자기 자신을 가리키므로 실패한다.
+  if (
+    isNetworkWebPreview &&
+    (savedApiBase.includes("127.0.0.1") ||
+      savedApiBase.includes("localhost") ||
+      savedApiBase.includes("10.0.2.2"))
+  ) {
+    return getDefaultApiBase();
+  }
   if (isLocalWebPreview && savedApiBase.includes("10.0.2.2")) {
     return "http://127.0.0.1:8000";
   }
   if (isAndroidAppPreview && savedApiBase.includes("127.0.0.1")) {
     return "http://10.0.2.2:8000";
   }
-
   return savedApiBase;
 }
 
@@ -39,13 +52,17 @@ const defaultApiBase = getDefaultApiBase();
 const state = {
   apiBase: getInitialApiBase(),
   callFile: null,
-  callerName: localStorage.getItem("voicekin_caller_name") || "엄마",
+  callerNumber: localStorage.getItem("voicekin_caller_number") || "010-0000-0000",
+  familyName:
+    localStorage.getItem("voicekin_family_name") ||
+    localStorage.getItem("voicekin_caller_name") ||
+    "엄마",
   startedAt: null,
   timer: null,
   warningTimer: null,
   analysisPromise: null,
   latestAnalysis: null,
-  setupCollapsed: false,
+  isCalling: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -58,16 +75,23 @@ function setText(id, value) {
   $(id).textContent = value;
 }
 
+function setCard(status, title, message) {
+  $("aiCard").className = `ai-card ${status}`;
+  $("statusImage").src = STATUS_ASSETS[status];
+  setText("warningTitle", title);
+  setText("warningMessage", message);
+}
+
 function setCallState(message) {
   setText("callState", message);
 }
 
-function setLiveMessage(message) {
-  setText("liveMessage", message);
-}
-
 function setSetupHint(message) {
   setText("setupHint", message);
+}
+
+function showSetup(open) {
+  $("setupSheet").classList.toggle("open", open);
 }
 
 async function requestJson(path, options = {}) {
@@ -77,6 +101,7 @@ async function requestJson(path, options = {}) {
   } catch (error) {
     throw new Error(`AI 서버 연결 실패: ${state.apiBase}`);
   }
+
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.detail || `HTTP ${response.status}`);
@@ -86,30 +111,34 @@ async function requestJson(path, options = {}) {
 
 async function checkServer() {
   $("apiBaseInput").value = state.apiBase;
-  $("callerNameInput").value = state.callerName;
-  applyCallerName();
+  $("callerNumberInput").value = state.callerNumber;
+  $("familyNameInput").value = state.familyName;
+  applyCallerDisplay();
 
   try {
     await requestJson("/health");
-    setText("networkStatus", "VoiceKin 연결됨");
+    setText("networkStatus", "AI 서버 연결됨");
   } catch {
-    setText("networkStatus", "서버 연결 필요");
+    setText("networkStatus", "AI 서버 연결 필요");
   }
 }
 
 function saveSetup() {
   state.apiBase = $("apiBaseInput").value.trim() || defaultApiBase;
-  state.callerName = $("callerNameInput").value.trim() || "엄마";
+  state.callerNumber = $("callerNumberInput").value.trim() || "010-0000-0000";
+  state.familyName = $("familyNameInput").value.trim() || "엄마";
+
   localStorage.setItem("voicekin_api_base", state.apiBase);
-  localStorage.setItem("voicekin_caller_name", state.callerName);
-  applyCallerName();
+  localStorage.setItem("voicekin_caller_number", state.callerNumber);
+  localStorage.setItem("voicekin_family_name", state.familyName);
+
+  applyCallerDisplay();
   checkServer();
   setSetupHint("설정이 저장됐습니다.");
 }
 
-function applyCallerName() {
-  setText("callerName", state.callerName);
-  setText("avatar", state.callerName.trim().charAt(0) || "가");
+function applyCallerDisplay() {
+  setText("callerNumber", state.callerNumber);
 }
 
 function updateFileLabel() {
@@ -126,36 +155,45 @@ function prepareCall() {
     return;
   }
 
-  $("warningPopup").classList.add("hidden");
-  state.latestAnalysis = null;
-  state.analysisPromise = null;
-  setCallState("통화 준비 완료");
-  setLiveMessage("통화 시작 버튼을 누르면 선택한 음성이 재생됩니다.");
-  setSetupHint("준비됐습니다. 통화 화면의 재생 버튼을 누르세요.");
-  collapseSetup(true);
+  showSetup(false);
+  startCall();
 }
 
 function startCall() {
   if (!state.callFile) {
-    prepareCall();
+    showSetup(true);
+    setSetupHint("통화 음성 파일을 선택한 뒤 통화 시작을 누르세요.");
+    return;
   }
-  if (!state.callFile) return;
-
-  $("warningPopup").classList.add("hidden");
-  setCallState("통화 중");
-  setLiveMessage("VoiceKin이 보이스피싱인지 분석중 입니다.");
 
   const audio = $("callAudioPlayer");
+  audio.pause();
   audio.src = URL.createObjectURL(state.callFile);
-  audio.play().catch(() => {
-    setLiveMessage("재생 버튼을 한 번 더 누르면 음성이 재생됩니다.");
-  });
 
+  state.isCalling = true;
+  state.latestAnalysis = null;
+  state.analysisPromise = null;
   state.startedAt = Date.now();
+
   if (state.timer) clearInterval(state.timer);
   if (state.warningTimer) clearTimeout(state.warningTimer);
-  state.timer = setInterval(updateTimer, 300);
 
+  setCallState("통화 중");
+  setCard(
+    "judgment",
+    "AI가 판단 중입니다",
+    "VoiceKin이 통화 음성을 분석하고 있습니다."
+  );
+
+  audio.play().catch(() => {
+    setCard(
+      "judgment",
+      "재생 대기 중입니다",
+      "브라우저 정책 때문에 음성이 멈췄습니다. 화면을 한 번 터치해 주세요."
+    );
+  });
+
+  state.timer = setInterval(updateTimer, 300);
   state.analysisPromise = analyzeFile(state.callFile)
     .then((data) => {
       state.latestAnalysis = data;
@@ -177,10 +215,15 @@ function stopCall() {
   if (state.timer) clearInterval(state.timer);
   if (state.warningTimer) clearTimeout(state.warningTimer);
 
+  state.isCalling = false;
   state.startedAt = null;
   setText("callTimer", "00:00");
   setCallState("통화 종료");
-  setLiveMessage("통화를 종료했습니다. 다시 시작하려면 통화 준비를 누르세요.");
+  setCard(
+    "judgment",
+    "통화가 종료되었습니다",
+    "우측 상단 메뉴에서 다른 음성 파일로 다시 시연할 수 있습니다."
+  );
 }
 
 function updateTimer() {
@@ -192,66 +235,67 @@ function updateTimer() {
 }
 
 async function showAnalysisPopup() {
-  setCallState("VoiceKin 확인 중");
+  if (!state.isCalling) return;
 
-  const data = state.latestAnalysis || await state.analysisPromise;
+  const data = state.latestAnalysis || (await state.analysisPromise);
+  if (!state.isCalling) return;
+
   if (!data || data.error) {
-    showWarning({
-      title: "분석 지연",
-      message: data?.error || "서버 분석이 아직 완료되지 않았습니다.",
-      safe: false,
-    });
+    setCallState("VoiceKin 확인 필요");
+    setCard(
+      "detect",
+      "분석 연결이 지연됩니다",
+      data?.error || "AI 서버 응답이 늦어지고 있습니다. 통화 내용을 다시 확인하세요."
+    );
     return;
   }
 
-  const warning = buildWarning(data);
-  showWarning(warning);
+  const result = buildWarning(data);
+  setCallState(result.safe ? "VoiceKin 안전" : "VoiceKin 경고");
+  setCard(result.status, result.title, result.message);
 }
 
 function buildWarning(data) {
   const family = data.family_verification;
   const anti = data.anti_spoofing;
-  const bestMatch = family.best_match;
-  const displayName = bestMatch?.name || state.callerName || "등록 가족";
+  const bestMatch = family?.best_match;
+  const displayName = state.familyName || bestMatch?.name || "가족";
+  const spoofScore = anti?.spoof_score ?? 0;
+  const hasStrongSpoofSignal = Boolean(anti?.is_spoofed && spoofScore >= STRONG_SPOOF_SCORE);
 
-  if (anti.is_spoofed && !family.is_registered_family) {
+  if (anti?.is_spoofed && !family?.is_registered_family) {
     return {
+      status: "detect",
+      safe: false,
       title: "보이스피싱이 의심됩니다",
       message: `저장된 ${displayName}의 목소리와 다르고 AI 합성 음성 신호가 감지됐습니다. 통화를 중단하고 직접 확인하세요.`,
-      safe: false,
     };
   }
 
-  if (!family.is_registered_family) {
+  if (!family?.is_registered_family) {
     return {
+      status: "detect",
+      safe: false,
       title: "보이스피싱이 의심됩니다",
       message: `저장된 ${displayName}의 목소리와 일치하지 않습니다. 통화 내용을 믿기 전에 가족에게 다시 확인하세요.`,
-      safe: false,
     };
   }
 
-  if (anti.is_spoofed) {
+  if (hasStrongSpoofSignal) {
     return {
-      title: "AI 음성 의심",
-      message: `${displayName}와 비슷하지만 AI 합성 음성 신호가 감지됐습니다. 민감한 정보 요청은 거절하세요.`,
+      status: "detect",
       safe: false,
+      title: "AI 음성 신호가 감지됐습니다",
+      message: `${displayName}와 비슷하지만 합성 음성 신호가 있습니다. 송금이나 인증번호 요청은 거절하세요.`,
     };
   }
 
   return {
-    title: "위험 신호가 낮습니다",
-    message: `저장된 ${displayName}의 목소리와 일치합니다. 그래도 송금이나 인증번호 요청은 한 번 더 확인하세요.`,
+    status: "safety",
     safe: true,
+    title: "등록된 가족 목소리입니다",
+    message: `저장된 ${displayName}의 목소리와 일치합니다. 그래도 송금이나 인증번호 요청은 한 번 더 확인하세요.`,
   };
-}
-
-function showWarning({ title, message, safe }) {
-  $("warningPopup").classList.toggle("safe", safe);
-  $("warningPopup").classList.remove("hidden");
-  setText("warningTitle", title);
-  setText("warningMessage", message);
-  setCallState(safe ? "VoiceKin 정상 확인" : "VoiceKin 경고");
-  setLiveMessage(message);
 }
 
 async function analyzeFile(file) {
@@ -263,21 +307,15 @@ async function analyzeFile(file) {
   });
 }
 
-function collapseSetup(forceValue = null) {
-  state.setupCollapsed = forceValue === null ? !state.setupCollapsed : forceValue;
-  $("setupSheet").classList.toggle("collapsed", state.setupCollapsed);
-  $("setupBody").classList.toggle("hidden", state.setupCollapsed);
-  $("toggleSetupBtn").textContent = state.setupCollapsed ? "설정" : "접기";
-}
-
 function bindEvents() {
   $("saveSetupBtn").addEventListener("click", saveSetup);
   $("prepareCallBtn").addEventListener("click", prepareCall);
-  $("startCallBtn").addEventListener("click", startCall);
   $("stopCallBtn").addEventListener("click", stopCall);
-  $("toggleSetupBtn").addEventListener("click", () => collapseSetup());
+  $("toggleSetupBtn").addEventListener("click", () => showSetup(true));
+  $("closeSetupBtn").addEventListener("click", () => showSetup(false));
   $("callAudioFile").addEventListener("change", updateFileLabel);
 }
 
 bindEvents();
 checkServer();
+setCard("judgment", "AI가 판단 중입니다", "통화 음성 파일을 선택하고 통화를 시작하세요.");
