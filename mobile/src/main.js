@@ -20,7 +20,7 @@ function getDefaultApiBase() {
 }
 
 function getInitialApiBase() {
-  const savedApiBase = localStorage.getItem("voicekin_api_base");
+  const savedApiBase = localStorage.getItem("isfam_api_base");
   const { protocol, hostname } = window.location;
   const isLocalWebPreview =
     protocol === "http:" && (hostname === "127.0.0.1" || hostname === "localhost");
@@ -52,10 +52,10 @@ const defaultApiBase = getDefaultApiBase();
 const state = {
   apiBase: getInitialApiBase(),
   callFile: null,
-  callerNumber: localStorage.getItem("voicekin_caller_number") || "010-0000-0000",
+  callerNumber: localStorage.getItem("isfam_caller_number") || "010-0000-0000",
   familyName:
-    localStorage.getItem("voicekin_family_name") ||
-    localStorage.getItem("voicekin_caller_name") ||
+    localStorage.getItem("isfam_family_name") ||
+    localStorage.getItem("isfam_caller_name") ||
     "엄마",
   startedAt: null,
   timer: null,
@@ -128,9 +128,9 @@ function saveSetup() {
   state.callerNumber = $("callerNumberInput").value.trim() || "010-0000-0000";
   state.familyName = $("familyNameInput").value.trim() || "엄마";
 
-  localStorage.setItem("voicekin_api_base", state.apiBase);
-  localStorage.setItem("voicekin_caller_number", state.callerNumber);
-  localStorage.setItem("voicekin_family_name", state.familyName);
+  localStorage.setItem("isfam_api_base", state.apiBase);
+  localStorage.setItem("isfam_caller_number", state.callerNumber);
+  localStorage.setItem("isfam_family_name", state.familyName);
 
   applyCallerDisplay();
   checkServer();
@@ -182,7 +182,7 @@ function startCall() {
   setCard(
     "judgment",
     "AI가 판단 중입니다",
-    "VoiceKin이 통화 음성을 분석하고 있습니다."
+    "IsFAM이 통화 음성을 분석하고 있습니다."
   );
 
   audio.play().catch(() => {
@@ -241,7 +241,7 @@ async function showAnalysisPopup() {
   if (!state.isCalling) return;
 
   if (!data || data.error) {
-    setCallState("VoiceKin 확인 필요");
+    setCallState("IsFAM 확인 필요");
     setCard(
       "detect",
       "분석 연결이 지연됩니다",
@@ -251,7 +251,7 @@ async function showAnalysisPopup() {
   }
 
   const result = buildWarning(data);
-  setCallState(result.safe ? "VoiceKin 안전" : "VoiceKin 경고");
+  setCallState(result.safe ? "IsFAM 안전" : "IsFAM 경고");
   setCard(result.status, result.title, result.message);
 }
 

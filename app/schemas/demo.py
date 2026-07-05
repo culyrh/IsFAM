@@ -26,7 +26,7 @@ class DemoAnswerRequest(BaseModel):
 
 
 class DemoAnswerResponse(BaseModel):
-    """Result after comparing the user guess with VoiceKin AI judgment."""
+    """Result after comparing the user guess with IsFAM AI judgment."""
 
     session_id: str
     user_guess: str

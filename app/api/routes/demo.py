@@ -78,7 +78,7 @@ def _media_type_for_audio(path: Path) -> str:
 async def root() -> dict[str, str]:
     return {
         "status": "ok",
-        "message": "VoiceKin API server is running. Use the mobile demo at http://127.0.0.1:5173.",
+        "message": "IsFAM API server is running. Use the mobile demo at http://127.0.0.1:5173.",
     }
 
 
@@ -123,7 +123,7 @@ async def get_demo_audio(
         return FileResponse(
             path=record.sample_path,
             media_type=_media_type_for_audio(record.sample_path),
-            filename=f"voicekin-demo{record.sample_path.suffix.lower()}",
+            filename=f"isfam-demo{record.sample_path.suffix.lower()}",
         )
     except DemoSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -144,7 +144,7 @@ async def answer_demo_session(
     settings: Settings = Depends(get_settings),
     service: DemoService = Depends(get_demo_service),
 ) -> DemoAnswerResponse:
-    """Evaluate the user guess and compare it with VoiceKin AI judgment."""
+    """Evaluate the user guess and compare it with IsFAM AI judgment."""
 
     temp_paths: list[Path | None] = []
 
@@ -210,7 +210,7 @@ DEMO_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VoiceKin Demo</title>
+  <title>IsFAM Demo</title>
   <style>
     :root {
       color-scheme: light;
@@ -356,8 +356,8 @@ DEMO_HTML = """
   <main>
     <header>
       <div>
-        <h1>VoiceKin 음성 판별 데모</h1>
-        <p class="sub">로컬 샘플을 랜덤 재생하고 사용자의 판단과 VoiceKin AI 판단을 비교합니다.</p>
+        <h1>IsFAM 음성 판별 데모</h1>
+        <p class="sub">로컬 샘플을 랜덤 재생하고 사용자의 판단과 IsFAM AI 판단을 비교합니다.</p>
       </div>
       <a href="/docs">API Docs</a>
     </header>
@@ -391,7 +391,7 @@ DEMO_HTML = """
           <span id="actualLabel"></span>
         </div>
         <div class="metric">
-          <strong>VoiceKin AI 판단</strong>
+          <strong>IsFAM AI 판단</strong>
           <span id="aiGuess"></span>
         </div>
       </div>
@@ -482,7 +482,7 @@ DEMO_HTML = """
     async function answerDemo(userGuess) {
       if (!currentSessionId) return;
       setBusy(true);
-      setStatus("VoiceKin AI가 같은 샘플을 분석하는 중입니다.");
+      setStatus("IsFAM AI가 같은 샘플을 분석하는 중입니다.");
 
       try {
         const response = await fetch(`/api/v1/demo-sessions/${currentSessionId}/answer`, {

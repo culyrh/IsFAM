@@ -1,4 +1,4 @@
-# VoiceKin Mobile Demo
+# IsFAM Mobile Demo
 
 Capacitor 기반 Android 시연용 모바일 앱입니다. AI 모델은 앱 안에서 돌리지 않고, 기존 FastAPI 서버를 호출합니다.
 
@@ -63,7 +63,7 @@ Android Studio가 열리면 에뮬레이터 또는 기기에 설치해서 시연
 3. `통화` 탭에서 실제 음성 파일과 AI 음성 파일을 넣습니다.
 4. `랜덤 통화 시작`을 누르면 둘 중 하나가 재생됩니다.
 5. 약 10초 뒤 실제 음성인지 AI 음성인지 선택합니다.
-6. 앱이 FastAPI 서버로 파일을 보내고 VoiceKin AI 결과를 보여줍니다.
+6. 앱이 FastAPI 서버로 파일을 보내고 IsFAM AI 결과를 보여줍니다.
 
 ## 현재 범위
 

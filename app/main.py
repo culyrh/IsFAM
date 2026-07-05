@@ -40,7 +40,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="VoiceKin AI model based speaker verification API server.",
+    description="IsFAM AI model based speaker verification API server.",
     lifespan=lifespan,
 )
 

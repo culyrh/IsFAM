@@ -1,4 +1,4 @@
-package com.voicekin.demo;
+package com.isfam.demo;
 
 import com.getcapacitor.BridgeActivity;
 

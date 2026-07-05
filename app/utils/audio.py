@@ -92,7 +92,7 @@ async def save_upload_file_to_temp(
     """Save an uploaded file to a temporary file while enforcing size limit."""
 
     extension = validate_audio_extension(upload_file.filename, allowed_extensions)
-    temp_path = Path(tempfile.gettempdir()) / f"voicekin_{uuid4().hex}.{extension}"
+    temp_path = Path(tempfile.gettempdir()) / f"isfam_{uuid4().hex}.{extension}"
 
     total_size = 0
     chunk_size = 1024 * 1024
@@ -189,7 +189,7 @@ def convert_audio_with_ffmpeg(
             "Install it with: brew install ffmpeg"
         )
 
-    output_path = Path(tempfile.gettempdir()) / f"voicekin_{uuid4().hex}.wav"
+    output_path = Path(tempfile.gettempdir()) / f"isfam_{uuid4().hex}.wav"
     command = [
         ffmpeg_path,
         "-y",
@@ -279,7 +279,7 @@ def convert_audio_to_standard_wav(
 ) -> Path:
     """Convert uploaded audio to a temporary 16kHz mono wav file."""
 
-    output_path = Path(tempfile.gettempdir()) / f"voicekin_{uuid4().hex}.wav"
+    output_path = Path(tempfile.gettempdir()) / f"isfam_{uuid4().hex}.wav"
     try:
         waveform, sample_rate, _ = load_audio_as_mono_16k(
             input_path=input_path,

@@ -1,6 +1,6 @@
 {
-  "appId": "com.voicekin.demo",
-  "appName": "VoiceKin Demo",
+  "appId": "com.isfam.demo",
+  "appName": "IsFAM Demo",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

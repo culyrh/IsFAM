@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">VoiceKin Demo</string>
-    <string name="title_activity_main">VoiceKin Demo</string>
-    <string name="package_name">com.voicekin.demo</string>
-    <string name="custom_url_scheme">com.voicekin.demo</string>
+    <string name="app_name">IsFAM Demo</string>
+    <string name="title_activity_main">IsFAM Demo</string>
+    <string name="package_name">com.isfam.demo</string>
+    <string name="custom_url_scheme">com.isfam.demo</string>
 </resources>

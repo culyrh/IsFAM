@@ -11,11 +11,11 @@ class Settings:
 
     Values can be overridden with environment variables or a local .env file.
     Example:
-        VOICEKIN_SPEAKER_THRESHOLD=0.72
-        VOICEKIN_MAX_UPLOAD_SIZE_MB=20
+        ISFAM_SPEAKER_THRESHOLD=0.72
+        ISFAM_MAX_UPLOAD_SIZE_MB=20
     """
 
-    app_name: str = "VoiceKin Speaker Verification API"
+    app_name: str = "IsFAM Speaker Verification API"
     api_v1_prefix: str = "/api/v1"
     cors_allowed_origins: Tuple[str, ...] = (
         "http://localhost:5173",
@@ -39,7 +39,7 @@ class Settings:
     # SpeechBrain ECAPA-TDNN model published on Hugging Face.
     speaker_model_name: str = "speechbrain/spkrec-ecapa-voxceleb"
     speaker_model_dir: Path = Path("pretrained_models/spkrec-ecapa-voxceleb")
-    database_path: Path = Path("data/voicekin.sqlite3")
+    database_path: Path = Path("data/isfam.sqlite3")
     demo_sample_dir: Path = Path("demo_samples")
 
     # Hugging Face audio classification model for real/spoof voice detection.
@@ -66,10 +66,10 @@ class Settings:
     voice_session_strong_spoof_score: float = 0.35
     voice_session_family_confirm_chunks: int = 2
 
-    # Tune this value with real VoiceKin validation data later.
+    # Tune this value with real IsFAM validation data later.
     speaker_threshold: float = 0.75
 
-    # CPU is the safest default. Set VOICEKIN_DEVICE=cuda on a CUDA machine.
+    # CPU is the safest default. Set ISFAM_DEVICE=cuda on a CUDA machine.
     device: str = "cpu"
 
     allowed_audio_extensions: Tuple[str, ...] = ("wav", "mp3", "m4a")
@@ -79,50 +79,50 @@ class Settings:
 
     def __post_init__(self) -> None:
         if not -1.0 <= self.speaker_threshold <= 1.0:
-            raise ValueError("VOICEKIN_SPEAKER_THRESHOLD must be between -1.0 and 1.0")
+            raise ValueError("ISFAM_SPEAKER_THRESHOLD must be between -1.0 and 1.0")
         if not 0.0 <= self.anti_spoofing_threshold <= 1.0:
-            raise ValueError("VOICEKIN_ANTI_SPOOFING_THRESHOLD must be between 0.0 and 1.0")
+            raise ValueError("ISFAM_ANTI_SPOOFING_THRESHOLD must be between 0.0 and 1.0")
         if self.anti_spoofing_max_audio_seconds < 1.0:
             raise ValueError(
-                "VOICEKIN_ANTI_SPOOFING_MAX_AUDIO_SECONDS must be greater than or equal to 1.0"
+                "ISFAM_ANTI_SPOOFING_MAX_AUDIO_SECONDS must be greater than or equal to 1.0"
             )
         if self.anti_spoofing_window_seconds < 1.0:
             raise ValueError(
-                "VOICEKIN_ANTI_SPOOFING_WINDOW_SECONDS must be greater than or equal to 1.0"
+                "ISFAM_ANTI_SPOOFING_WINDOW_SECONDS must be greater than or equal to 1.0"
             )
         if self.anti_spoofing_hop_seconds <= 0:
-            raise ValueError("VOICEKIN_ANTI_SPOOFING_HOP_SECONDS must be greater than 0")
+            raise ValueError("ISFAM_ANTI_SPOOFING_HOP_SECONDS must be greater than 0")
         if self.voice_session_min_analyzable_seconds < self.min_audio_seconds:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_MIN_ANALYZABLE_SECONDS must be greater than "
-                "or equal to VOICEKIN_MIN_AUDIO_SECONDS"
+                "ISFAM_VOICE_SESSION_MIN_ANALYZABLE_SECONDS must be greater than "
+                "or equal to ISFAM_MIN_AUDIO_SECONDS"
             )
         if not 0.0 <= self.voice_session_min_rms_energy <= 1.0:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_MIN_RMS_ENERGY must be between 0.0 and 1.0"
+                "ISFAM_VOICE_SESSION_MIN_RMS_ENERGY must be between 0.0 and 1.0"
             )
         if not 0.0 <= self.voice_session_min_speech_ratio <= 1.0:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_MIN_SPEECH_RATIO must be between 0.0 and 1.0"
+                "ISFAM_VOICE_SESSION_MIN_SPEECH_RATIO must be between 0.0 and 1.0"
             )
         if self.voice_session_repeated_spoof_chunks < 1:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_REPEATED_SPOOF_CHUNKS must be greater than or equal to 1"
+                "ISFAM_VOICE_SESSION_REPEATED_SPOOF_CHUNKS must be greater than or equal to 1"
             )
         if not 0.0 <= self.voice_session_strong_spoof_score <= 1.0:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_STRONG_SPOOF_SCORE must be between 0.0 and 1.0"
+                "ISFAM_VOICE_SESSION_STRONG_SPOOF_SCORE must be between 0.0 and 1.0"
             )
         if self.voice_session_family_confirm_chunks < 1:
             raise ValueError(
-                "VOICEKIN_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS must be greater than or equal to 1"
+                "ISFAM_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS must be greater than or equal to 1"
             )
         if self.max_upload_size_mb < 1:
-            raise ValueError("VOICEKIN_MAX_UPLOAD_SIZE_MB must be greater than or equal to 1")
+            raise ValueError("ISFAM_MAX_UPLOAD_SIZE_MB must be greater than or equal to 1")
         if self.min_audio_seconds < 0.1:
-            raise ValueError("VOICEKIN_MIN_AUDIO_SECONDS must be greater than or equal to 0.1")
+            raise ValueError("ISFAM_MIN_AUDIO_SECONDS must be greater than or equal to 0.1")
         if self.target_sample_rate < 8000:
-            raise ValueError("VOICEKIN_TARGET_SAMPLE_RATE must be greater than or equal to 8000")
+            raise ValueError("ISFAM_TARGET_SAMPLE_RATE must be greater than or equal to 8000")
 
     @property
     def max_upload_size_bytes(self) -> int:
@@ -148,7 +148,7 @@ def _load_dotenv(dotenv_path: Path = Path(".env")) -> dict[str, str]:
 
 
 def _get_env(name: str, default: str, dotenv_values: dict[str, str]) -> str:
-    """Read VOICEKIN_* setting from environment first, then .env, then default."""
+    """Read ISFAM_* setting from environment first, then .env, then default."""
 
     return os.getenv(name) or dotenv_values.get(name, default)
 
@@ -177,10 +177,10 @@ def get_settings() -> Settings:
     dotenv_values = _load_dotenv()
 
     return Settings(
-        app_name=_get_env("VOICEKIN_APP_NAME", "VoiceKin Speaker Verification API", dotenv_values),
-        api_v1_prefix=_get_env("VOICEKIN_API_V1_PREFIX", "/api/v1", dotenv_values),
+        app_name=_get_env("ISFAM_APP_NAME", "IsFAM Speaker Verification API", dotenv_values),
+        api_v1_prefix=_get_env("ISFAM_API_V1_PREFIX", "/api/v1", dotenv_values),
         cors_allowed_origins=_get_tuple_env(
-            "VOICEKIN_CORS_ALLOWED_ORIGINS",
+            "ISFAM_CORS_ALLOWED_ORIGINS",
             (
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
@@ -193,7 +193,7 @@ def get_settings() -> Settings:
         ),
         cors_allowed_origin_regex=(
             _get_env(
-                "VOICEKIN_CORS_ALLOWED_ORIGIN_REGEX",
+                "ISFAM_CORS_ALLOWED_ORIGIN_REGEX",
                 (
                     r"^https?://("
                     r"localhost|"
@@ -209,106 +209,106 @@ def get_settings() -> Settings:
             or None
         ),
         speaker_model_name=_get_env(
-            "VOICEKIN_SPEAKER_MODEL_NAME",
+            "ISFAM_SPEAKER_MODEL_NAME",
             "speechbrain/spkrec-ecapa-voxceleb",
             dotenv_values,
         ),
         speaker_model_dir=Path(
             _get_env(
-                "VOICEKIN_SPEAKER_MODEL_DIR",
+                "ISFAM_SPEAKER_MODEL_DIR",
                 "pretrained_models/spkrec-ecapa-voxceleb",
                 dotenv_values,
             )
         ),
         database_path=Path(
             _get_env(
-                "VOICEKIN_DATABASE_PATH",
-                "data/voicekin.sqlite3",
+                "ISFAM_DATABASE_PATH",
+                "data/isfam.sqlite3",
                 dotenv_values,
             )
         ),
         demo_sample_dir=Path(
             _get_env(
-                "VOICEKIN_DEMO_SAMPLE_DIR",
+                "ISFAM_DEMO_SAMPLE_DIR",
                 "demo_samples",
                 dotenv_values,
             )
         ),
         anti_spoofing_model_name=_get_env(
-            "VOICEKIN_ANTI_SPOOFING_MODEL_NAME",
+            "ISFAM_ANTI_SPOOFING_MODEL_NAME",
             "Vansh180/deepfake-audio-wav2vec2",
             dotenv_values,
         ),
         anti_spoofing_model_dir=Path(
             _get_env(
-                "VOICEKIN_ANTI_SPOOFING_MODEL_DIR",
+                "ISFAM_ANTI_SPOOFING_MODEL_DIR",
                 "pretrained_models/deepfake-audio-wav2vec2",
                 dotenv_values,
             )
         ),
         anti_spoofing_threshold=_get_float_env(
-            "VOICEKIN_ANTI_SPOOFING_THRESHOLD",
+            "ISFAM_ANTI_SPOOFING_THRESHOLD",
             0.07,
             dotenv_values,
         ),
         anti_spoofing_spoof_labels=_get_tuple_env(
-            "VOICEKIN_ANTI_SPOOFING_SPOOF_LABELS",
+            "ISFAM_ANTI_SPOOFING_SPOOF_LABELS",
             ("spoof", "fake", "deepfake", "synthetic", "generated", "label_1"),
             dotenv_values,
         ),
         anti_spoofing_max_audio_seconds=_get_float_env(
-            "VOICEKIN_ANTI_SPOOFING_MAX_AUDIO_SECONDS",
+            "ISFAM_ANTI_SPOOFING_MAX_AUDIO_SECONDS",
             60.0,
             dotenv_values,
         ),
         anti_spoofing_window_seconds=_get_float_env(
-            "VOICEKIN_ANTI_SPOOFING_WINDOW_SECONDS",
+            "ISFAM_ANTI_SPOOFING_WINDOW_SECONDS",
             5.0,
             dotenv_values,
         ),
         anti_spoofing_hop_seconds=_get_float_env(
-            "VOICEKIN_ANTI_SPOOFING_HOP_SECONDS",
+            "ISFAM_ANTI_SPOOFING_HOP_SECONDS",
             2.5,
             dotenv_values,
         ),
         voice_session_min_analyzable_seconds=_get_float_env(
-            "VOICEKIN_VOICE_SESSION_MIN_ANALYZABLE_SECONDS",
+            "ISFAM_VOICE_SESSION_MIN_ANALYZABLE_SECONDS",
             2.0,
             dotenv_values,
         ),
         voice_session_min_rms_energy=_get_float_env(
-            "VOICEKIN_VOICE_SESSION_MIN_RMS_ENERGY",
+            "ISFAM_VOICE_SESSION_MIN_RMS_ENERGY",
             0.005,
             dotenv_values,
         ),
         voice_session_min_speech_ratio=_get_float_env(
-            "VOICEKIN_VOICE_SESSION_MIN_SPEECH_RATIO",
+            "ISFAM_VOICE_SESSION_MIN_SPEECH_RATIO",
             0.25,
             dotenv_values,
         ),
         voice_session_repeated_spoof_chunks=_get_int_env(
-            "VOICEKIN_VOICE_SESSION_REPEATED_SPOOF_CHUNKS",
+            "ISFAM_VOICE_SESSION_REPEATED_SPOOF_CHUNKS",
             2,
             dotenv_values,
         ),
         voice_session_strong_spoof_score=_get_float_env(
-            "VOICEKIN_VOICE_SESSION_STRONG_SPOOF_SCORE",
+            "ISFAM_VOICE_SESSION_STRONG_SPOOF_SCORE",
             0.35,
             dotenv_values,
         ),
         voice_session_family_confirm_chunks=_get_int_env(
-            "VOICEKIN_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS",
+            "ISFAM_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS",
             2,
             dotenv_values,
         ),
-        speaker_threshold=_get_float_env("VOICEKIN_SPEAKER_THRESHOLD", 0.75, dotenv_values),
-        device=_get_env("VOICEKIN_DEVICE", "cpu", dotenv_values),
+        speaker_threshold=_get_float_env("ISFAM_SPEAKER_THRESHOLD", 0.75, dotenv_values),
+        device=_get_env("ISFAM_DEVICE", "cpu", dotenv_values),
         allowed_audio_extensions=_get_tuple_env(
-            "VOICEKIN_ALLOWED_AUDIO_EXTENSIONS",
+            "ISFAM_ALLOWED_AUDIO_EXTENSIONS",
             ("wav", "mp3", "m4a"),
             dotenv_values,
         ),
-        max_upload_size_mb=_get_int_env("VOICEKIN_MAX_UPLOAD_SIZE_MB", 25, dotenv_values),
-        min_audio_seconds=_get_float_env("VOICEKIN_MIN_AUDIO_SECONDS", 1.0, dotenv_values),
-        target_sample_rate=_get_int_env("VOICEKIN_TARGET_SAMPLE_RATE", 16000, dotenv_values),
+        max_upload_size_mb=_get_int_env("ISFAM_MAX_UPLOAD_SIZE_MB", 25, dotenv_values),
+        min_audio_seconds=_get_float_env("ISFAM_MIN_AUDIO_SECONDS", 1.0, dotenv_values),
+        target_sample_rate=_get_int_env("ISFAM_TARGET_SAMPLE_RATE", 16000, dotenv_values),
     )

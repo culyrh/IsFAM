@@ -1,6 +1,6 @@
-# VoiceKin Speaker Verification Server
+# IsFAM Speaker Verification Server
 
-VoiceKin 1차 서버는 가족 사칭형 AI 보이스피싱 방지를 위한 **AI 모델 기반 화자 인증(Speaker Verification) API**입니다. 두 음성 파일을 업로드하면 SpeechBrain의 pretrained ECAPA-TDNN 모델로 speaker embedding을 추출하고 cosine similarity를 계산해 같은 화자인지 판별합니다.
+IsFAM 1차 서버는 가족 사칭형 AI 보이스피싱 방지를 위한 **AI 모델 기반 화자 인증(Speaker Verification) API**입니다. 두 음성 파일을 업로드하면 SpeechBrain의 pretrained ECAPA-TDNN 모델로 speaker embedding을 추출하고 cosine similarity를 계산해 같은 화자인지 판별합니다.
 
 ## 기술 스택
 
@@ -79,7 +79,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 서버 시작 시 SQLite DB 파일이 자동 생성됩니다.
 
 ```text
-data/voicekin.sqlite3
+data/isfam.sqlite3
 ```
 
 이 DB에는 가족 이름, 관계, 모델명, speaker embedding BLOB이 저장됩니다. API 응답에는 embedding을 노출하지 않습니다.
@@ -575,21 +575,21 @@ http://localhost:8000/docs
 
 ## 설정 변경
 
-설정은 `app/core/config.py`에 모아두었고 환경변수로 덮어쓸 수 있습니다. 환경변수 prefix는 `VOICEKIN_`입니다.
+설정은 `app/core/config.py`에 모아두었고 환경변수로 덮어쓸 수 있습니다. 환경변수 prefix는 `ISFAM_`입니다.
 
 ```bash
-VOICEKIN_SPEAKER_THRESHOLD=0.72 uvicorn app.main:app --reload
-VOICEKIN_MAX_UPLOAD_SIZE_MB=50 uvicorn app.main:app --reload
-VOICEKIN_MIN_AUDIO_SECONDS=1.5 uvicorn app.main:app --reload
-VOICEKIN_DEVICE=cpu uvicorn app.main:app --reload
-VOICEKIN_DATABASE_PATH=data/voicekin.sqlite3 uvicorn app.main:app --reload
-VOICEKIN_ANTI_SPOOFING_THRESHOLD=0.07 uvicorn app.main:app --reload
-VOICEKIN_ANTI_SPOOFING_MODEL_NAME=Vansh180/deepfake-audio-wav2vec2 uvicorn app.main:app --reload
-VOICEKIN_ANTI_SPOOFING_WINDOW_SECONDS=5.0 uvicorn app.main:app --reload
-VOICEKIN_ANTI_SPOOFING_HOP_SECONDS=2.5 uvicorn app.main:app --reload
-VOICEKIN_VOICE_SESSION_REPEATED_SPOOF_CHUNKS=2 uvicorn app.main:app --reload
-VOICEKIN_VOICE_SESSION_STRONG_SPOOF_SCORE=0.35 uvicorn app.main:app --reload
-VOICEKIN_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS=2 uvicorn app.main:app --reload
+ISFAM_SPEAKER_THRESHOLD=0.72 uvicorn app.main:app --reload
+ISFAM_MAX_UPLOAD_SIZE_MB=50 uvicorn app.main:app --reload
+ISFAM_MIN_AUDIO_SECONDS=1.5 uvicorn app.main:app --reload
+ISFAM_DEVICE=cpu uvicorn app.main:app --reload
+ISFAM_DATABASE_PATH=data/isfam.sqlite3 uvicorn app.main:app --reload
+ISFAM_ANTI_SPOOFING_THRESHOLD=0.07 uvicorn app.main:app --reload
+ISFAM_ANTI_SPOOFING_MODEL_NAME=Vansh180/deepfake-audio-wav2vec2 uvicorn app.main:app --reload
+ISFAM_ANTI_SPOOFING_WINDOW_SECONDS=5.0 uvicorn app.main:app --reload
+ISFAM_ANTI_SPOOFING_HOP_SECONDS=2.5 uvicorn app.main:app --reload
+ISFAM_VOICE_SESSION_REPEATED_SPOOF_CHUNKS=2 uvicorn app.main:app --reload
+ISFAM_VOICE_SESSION_STRONG_SPOOF_SCORE=0.35 uvicorn app.main:app --reload
+ISFAM_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS=2 uvicorn app.main:app --reload
 ```
 
 주요 설정:
@@ -599,7 +599,7 @@ VOICEKIN_VOICE_SESSION_FAMILY_CONFIRM_CHUNKS=2 uvicorn app.main:app --reload
 - `min_audio_seconds`: 너무 짧은 음성을 거부하기 위한 최소 길이입니다. 기본값은 `1.0초`입니다.
 - `target_sample_rate`: 모델 입력용 샘플레이트입니다. 기본값은 `16000Hz`입니다.
 - `device`: 기본값은 `cpu`입니다. CUDA 서버에서는 `cuda` 또는 `auto`로 바꿀 수 있습니다.
-- `database_path`: 가족 voiceprint 저장용 SQLite DB 경로입니다. 기본값은 `data/voicekin.sqlite3`입니다.
+- `database_path`: 가족 voiceprint 저장용 SQLite DB 경로입니다. 기본값은 `data/isfam.sqlite3`입니다.
 - `anti_spoofing_model_name`: Hugging Face anti-spoofing audio classification 모델명입니다. 기본값은 `Vansh180/deepfake-audio-wav2vec2`입니다.
 - `anti_spoofing_threshold`: spoof로 판단할 score 기준값입니다. 기본값은 `0.07`입니다. 낮을수록 더 민감하지만 정상 음성을 spoof로 오판할 수 있습니다.
 - `anti_spoofing_spoof_labels`: spoof score에 합산할 모델 label 목록입니다. 기본값은 `spoof,fake,deepfake,synthetic,generated,label_1`입니다.
@@ -750,7 +750,7 @@ threshold,total,correct,accuracy,tp,tn,fp,fn,precision,recall,false_positive_rat
 - `false_positive_rate`: 정상 음성을 위험하다고 오판하는 비율
 - `false_negative_rate`: fake를 놓치는 비율
 
-VoiceKin은 보이스피싱 방지 목적이므로 `fn`을 줄이는 것이 중요하지만, `fp`가 너무 높으면 정상 사용자 경험이 나빠집니다.
+IsFAM은 보이스피싱 방지 목적이므로 `fn`을 줄이는 것이 중요하지만, `fp`가 너무 높으면 정상 사용자 경험이 나빠집니다.
 
 ### Speaker Verification 평가 데이터 준비
 
@@ -831,15 +831,15 @@ threshold,total,correct,accuracy,tp,tn,fp,fn,precision,recall,false_accept_rate,
 평가 결과를 보고 threshold를 바꿀 때는 환경변수나 `.env`를 사용합니다.
 
 ```bash
-VOICEKIN_SPEAKER_THRESHOLD=0.70 uvicorn app.main:app --reload
-VOICEKIN_ANTI_SPOOFING_THRESHOLD=0.10 uvicorn app.main:app --reload
+ISFAM_SPEAKER_THRESHOLD=0.70 uvicorn app.main:app --reload
+ISFAM_ANTI_SPOOFING_THRESHOLD=0.10 uvicorn app.main:app --reload
 ```
 
 로컬 `.env` 예시:
 
 ```text
-VOICEKIN_SPEAKER_THRESHOLD=0.70
-VOICEKIN_ANTI_SPOOFING_THRESHOLD=0.10
+ISFAM_SPEAKER_THRESHOLD=0.70
+ISFAM_ANTI_SPOOFING_THRESHOLD=0.10
 ```
 
 주의: 현재 anti-spoofing 모델은 데모용 baseline입니다. 평가 CSV를 쌓은 뒤에도 성능이 부족하면 AASIST 계열 모델 추가, 모델 교체, ensemble, 청크 누적 판단 개선 순서로 고도화하는 것이 좋습니다.

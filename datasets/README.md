@@ -1,4 +1,4 @@
-# VoiceKin AI Evaluation Datasets
+# IsFAM AI Evaluation Datasets
 
 이 폴더는 모델 평가용 로컬 음성 데이터를 넣는 곳입니다.
 
