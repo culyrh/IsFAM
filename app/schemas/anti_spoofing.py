@@ -21,7 +21,7 @@ class AntiSpoofingResponse(BaseModel):
         description="Highest segment-level combined probability of labels configured as spoof/fake labels.",
         examples=[0.12],
     )
-    threshold: float = Field(..., examples=[0.07])
+    threshold: float = Field(..., examples=[0.5])
     predicted_label: str = Field(..., examples=["bonafide"])
     predicted_score: float = Field(..., examples=[0.88])
     message: str = Field(..., examples=["bonafide"])

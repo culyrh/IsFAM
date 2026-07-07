@@ -14,7 +14,12 @@ class RiskScoringResult:
 
 
 class RiskScoringService:
-    """Combine speaker verification and anti-spoofing into one explainable decision."""
+    """Family-first risk scoring for voice phishing detection.
+
+    IsFAM treats "not similar to registered family" as the primary danger
+    signal. Anti-spoofing is still useful, but it is a supporting signal because
+    a real human impersonator is also unsafe in this service domain.
+    """
 
     def __init__(self, strong_spoof_score: float):
         self.strong_spoof_score = strong_spoof_score
@@ -28,13 +33,14 @@ class RiskScoringService:
         spoof_score, spoof_reasons = self._score_spoof_signal(anti_spoofing_result)
         stability_score, stability_reasons = self._score_voiceprint_stability(family_result)
 
-        risk_score = round(
-            min(1.0, family_score * 0.55 + spoof_score * 0.35 + stability_score * 0.10),
-            4,
+        risk_score = self._apply_family_first_policy(
+            base_score=min(1.0, family_score * 0.80 + spoof_score * 0.15 + stability_score * 0.05),
+            family_result=family_result,
+            anti_spoofing_result=anti_spoofing_result,
         )
         risk_level = self._risk_level(risk_score)
         is_trusted = (
-            risk_level == "low"
+            risk_level == "safe"
             and family_result.is_registered_family
             and not anti_spoofing_result.is_spoofed
         )
@@ -51,6 +57,38 @@ class RiskScoringService:
             ),
             reasons=family_reasons + spoof_reasons + stability_reasons,
         )
+
+    def _apply_family_first_policy(
+        self,
+        base_score: float,
+        family_result: FamilyVerificationResult,
+        anti_spoofing_result: AntiSpoofingResult,
+    ) -> float:
+        """Force family mismatch to remain visible even when spoof score is low."""
+
+        best_match = family_result.best_match
+        risk_score = base_score
+
+        if best_match is None:
+            return 1.0
+
+        margin = best_match.similarity - family_result.threshold
+        if not family_result.is_registered_family:
+            if margin < -0.05:
+                risk_score = max(risk_score, 0.75)
+            else:
+                risk_score = max(risk_score, 0.45)
+
+        if family_result.is_registered_family and margin < 0.03:
+            risk_score = max(risk_score, 0.25)
+
+        if family_result.is_registered_family and anti_spoofing_result.is_spoofed:
+            risk_score = max(risk_score, 0.55)
+
+        if anti_spoofing_result.spoof_score >= self.strong_spoof_score:
+            risk_score = max(risk_score, 0.85)
+
+        return round(min(1.0, risk_score), 4)
 
     @staticmethod
     def _score_family_match(result: FamilyVerificationResult) -> tuple[float, list[str]]:
@@ -141,6 +179,8 @@ class RiskScoringService:
             return "spoofed_family_like_voice"
         if not family_result.is_registered_family and anti_spoofing_result.is_spoofed:
             return "spoofed_unknown_voice"
+        if not family_result.is_registered_family and risk_level == "danger":
+            return "unregistered_voice_detected"
         if risk_level == "caution":
             return "family_voice_needs_confirmation"
         return "unknown_real_voice"

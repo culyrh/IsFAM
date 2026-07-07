@@ -55,7 +55,7 @@ class VoiceSessionStatusResponse(BaseModel):
     strong_spoof_score: float = Field(
         ...,
         description="Spoof score high enough to mark rolling result as spoofed immediately.",
-        examples=[0.35],
+        examples=[0.8],
     )
     best_family_match: FamilyCandidateResponse | None = None
     family_match_chunks: int = Field(
@@ -68,8 +68,8 @@ class VoiceSessionStatusResponse(BaseModel):
         description="Number of matching chunks required before rolling result confirms family.",
         examples=[2],
     )
-    speaker_threshold: float = Field(..., examples=[0.75])
-    anti_spoofing_threshold: float = Field(..., examples=[0.07])
+    speaker_threshold: float = Field(..., examples=[0.65])
+    anti_spoofing_threshold: float = Field(..., examples=[0.5])
 
 
 class VoiceSessionStartResponse(VoiceSessionStatusResponse):

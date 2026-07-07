@@ -11,7 +11,7 @@ class Settings:
 
     Values can be overridden with environment variables or a local .env file.
     Example:
-        ISFAM_SPEAKER_THRESHOLD=0.72
+        ISFAM_SPEAKER_THRESHOLD=0.65
         ISFAM_MAX_UPLOAD_SIZE_MB=20
     """
 
@@ -45,7 +45,7 @@ class Settings:
     # Hugging Face audio classification model for real/spoof voice detection.
     anti_spoofing_model_name: str = "Vansh180/deepfake-audio-wav2vec2"
     anti_spoofing_model_dir: Path = Path("pretrained_models/deepfake-audio-wav2vec2")
-    anti_spoofing_threshold: float = 0.07
+    anti_spoofing_threshold: float = 0.50
     anti_spoofing_spoof_labels: Tuple[str, ...] = (
         "spoof",
         "fake",
@@ -63,11 +63,11 @@ class Settings:
     voice_session_min_rms_energy: float = 0.005
     voice_session_min_speech_ratio: float = 0.25
     voice_session_repeated_spoof_chunks: int = 2
-    voice_session_strong_spoof_score: float = 0.35
+    voice_session_strong_spoof_score: float = 0.80
     voice_session_family_confirm_chunks: int = 2
 
-    # Tune this value with real IsFAM validation data later.
-    speaker_threshold: float = 0.75
+    # Tuned from current family_real pairwise evaluation.
+    speaker_threshold: float = 0.65
 
     # CPU is the safest default. Set ISFAM_DEVICE=cuda on a CUDA machine.
     device: str = "cpu"
@@ -248,7 +248,7 @@ def get_settings() -> Settings:
         ),
         anti_spoofing_threshold=_get_float_env(
             "ISFAM_ANTI_SPOOFING_THRESHOLD",
-            0.07,
+            0.50,
             dotenv_values,
         ),
         anti_spoofing_spoof_labels=_get_tuple_env(
@@ -293,7 +293,7 @@ def get_settings() -> Settings:
         ),
         voice_session_strong_spoof_score=_get_float_env(
             "ISFAM_VOICE_SESSION_STRONG_SPOOF_SCORE",
-            0.35,
+            0.80,
             dotenv_values,
         ),
         voice_session_family_confirm_chunks=_get_int_env(
@@ -301,7 +301,7 @@ def get_settings() -> Settings:
             2,
             dotenv_values,
         ),
-        speaker_threshold=_get_float_env("ISFAM_SPEAKER_THRESHOLD", 0.75, dotenv_values),
+        speaker_threshold=_get_float_env("ISFAM_SPEAKER_THRESHOLD", 0.65, dotenv_values),
         device=_get_env("ISFAM_DEVICE", "cpu", dotenv_values),
         allowed_audio_extensions=_get_tuple_env(
             "ISFAM_ALLOWED_AUDIO_EXTENSIONS",

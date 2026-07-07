@@ -16,7 +16,7 @@ class VoiceCompareResponse(BaseModel):
     threshold: float = Field(
         ...,
         description="Decision threshold used for same/different speaker.",
-        examples=[0.75],
+        examples=[0.65],
     )
     is_same_speaker: bool = Field(
         ...,
@@ -66,7 +66,7 @@ class VerifyFamilyResponse(BaseModel):
         default=None,
         description="Most similar registered family member. Null when no family member exists.",
     )
-    threshold: float = Field(..., examples=[0.75])
+    threshold: float = Field(..., examples=[0.65])
     candidates: list[FamilyCandidateResponse]
     message: str = Field(
         ...,

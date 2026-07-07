@@ -5,7 +5,7 @@ const STATUS_ASSETS = {
   detect: "/assets/detect.png",
   safety: "/assets/safety.png",
 };
-const STRONG_SPOOF_SCORE = 0.35;
+const STRONG_SPOOF_SCORE = 0.8;
 
 function getDefaultApiBase() {
   const { protocol, hostname } = window.location;
