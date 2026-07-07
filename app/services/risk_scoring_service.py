@@ -9,6 +9,8 @@ class RiskScoringResult:
     is_trusted: bool
     risk_level: str
     risk_score: float
+    family_confidence: float
+    mismatch_confidence: float
     final_decision: str
     reasons: list[str]
 
@@ -39,6 +41,8 @@ class RiskScoringService:
             anti_spoofing_result=anti_spoofing_result,
         )
         risk_level = self._risk_level(risk_score)
+        family_confidence = self._family_confidence(family_result)
+        mismatch_confidence = round(max(risk_score, 1.0 - family_confidence), 4)
         is_trusted = (
             risk_level == "safe"
             and family_result.is_registered_family
@@ -49,6 +53,8 @@ class RiskScoringService:
             is_trusted=is_trusted,
             risk_level=risk_level,
             risk_score=risk_score,
+            family_confidence=family_confidence,
+            mismatch_confidence=mismatch_confidence,
             final_decision=self._final_decision(
                 is_trusted=is_trusted,
                 family_result=family_result,
@@ -57,6 +63,27 @@ class RiskScoringService:
             ),
             reasons=family_reasons + spoof_reasons + stability_reasons,
         )
+
+    @staticmethod
+    def _family_confidence(family_result: FamilyVerificationResult) -> float:
+        best_match = family_result.best_match
+        if best_match is None:
+            return 0.0
+
+        threshold = family_result.threshold
+        margin = best_match.similarity - threshold
+        if margin >= 0:
+            confidence = 0.75 + min(0.25, margin / 0.20 * 0.25)
+        else:
+            confidence = max(0.0, 0.75 + margin / 0.20 * 0.75)
+
+        if best_match.confidence_score is not None:
+            confidence = confidence * (0.7 + best_match.confidence_score * 0.3)
+
+        if best_match.low_quality_sample_count:
+            confidence -= min(0.08, best_match.low_quality_sample_count * 0.02)
+
+        return round(max(0.0, min(1.0, confidence)), 4)
 
     def _apply_family_first_policy(
         self,
@@ -145,17 +172,18 @@ class RiskScoringService:
                 f"{best_match.name} 등록 샘플이 {best_match.sample_count}개라 안정성 판단에는 추가 샘플이 필요합니다."
             ]
 
-        if best_match.max_similarity is None or best_match.median_similarity is None:
-            return 0.0, []
-
-        spread = round(best_match.max_similarity - best_match.median_similarity, 4)
-        if spread >= 0.15:
-            return 0.35, [
-                f"등록 샘플 간 유사도 편차가 {spread:.4f}로 커서 확인 필요 상태를 강화합니다."
+        if best_match.low_quality_sample_count > 0:
+            return 0.2, [
+                f"{best_match.name} 등록 샘플 중 {best_match.low_quality_sample_count}개는 품질 재검토 권장 대상입니다."
             ]
 
-        return 0.0, [
-            f"{best_match.sample_count}개 등록 샘플 기준 유사도 편차가 안정적입니다."
+        if best_match.confidence_score is not None and best_match.confidence_score >= 0.8:
+            return 0.0, [
+                f"{best_match.sample_count}개 등록 샘플 기준 가족 프로필 분리 신뢰도가 높습니다."
+            ]
+
+        return 0.1, [
+            f"{best_match.sample_count}개 등록 샘플 기준 가족 프로필 분리 신뢰도 확인이 필요합니다."
         ]
 
     @staticmethod

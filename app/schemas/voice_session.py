@@ -40,6 +40,26 @@ class VoiceSessionStatusResponse(BaseModel):
     )
     risk_level: str = Field(..., examples=["low"])
     message: str = Field(..., examples=["registered_family_likely"])
+    rolling_family_confidence: float = Field(
+        ...,
+        description="Weighted confidence accumulated from analyzed chunks that the caller matches registered family.",
+        examples=[0.82],
+    )
+    rolling_mismatch_confidence: float = Field(
+        ...,
+        description="Weighted confidence accumulated from analyzed chunks that the caller should not be trusted as family.",
+        examples=[0.18],
+    )
+    trusted_chunks: int = Field(
+        ...,
+        description="Analyzable chunks whose family confidence was strong and spoof confidence was low.",
+        examples=[3],
+    )
+    mismatch_chunks: int = Field(
+        ...,
+        description="Analyzable chunks whose mismatch confidence was high.",
+        examples=[0],
+    )
     max_spoof_score: float = Field(..., examples=[0.12])
     max_spoof_chunk_index: int | None = Field(default=None, examples=[2])
     suspicious_chunks: int = Field(

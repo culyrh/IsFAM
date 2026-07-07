@@ -82,6 +82,16 @@ def _to_candidate_response(match: FamilyVoiceMatch) -> FamilyCandidateResponse:
         name=match.name,
         relation=match.relation,
         similarity=match.similarity,
+        sample_count=match.sample_count,
+        max_similarity=match.max_similarity,
+        mean_similarity=match.mean_similarity,
+        median_similarity=match.median_similarity,
+        weighted_mean_similarity=match.weighted_mean_similarity,
+        weighted_median_similarity=match.weighted_median_similarity,
+        profile_threshold=match.profile_threshold,
+        confidence_score=match.confidence_score,
+        sample_quality=match.sample_quality,
+        low_quality_sample_count=match.low_quality_sample_count,
     )
 
 
@@ -145,6 +155,10 @@ def _status_to_response(result: VoiceSessionStatus) -> VoiceSessionStatusRespons
         is_registered_family=result.is_registered_family,
         risk_level=result.risk_level,
         message=result.message,
+        rolling_family_confidence=result.rolling_family_confidence,
+        rolling_mismatch_confidence=result.rolling_mismatch_confidence,
+        trusted_chunks=result.trusted_chunks,
+        mismatch_chunks=result.mismatch_chunks,
         max_spoof_score=result.max_spoof_score,
         max_spoof_chunk_index=result.max_spoof_chunk_index,
         suspicious_chunks=result.suspicious_chunks,

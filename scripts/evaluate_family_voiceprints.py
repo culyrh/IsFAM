@@ -28,6 +28,7 @@ from app.utils.audio import cleanup_temp_files, convert_audio_to_standard_wav
 DEFAULT_EVAL_DIR = ROOT_DIR / "datasets" / "eval" / "family_real"
 DEFAULT_PAIR_OUTPUT = ROOT_DIR / "reports" / "family_voiceprint_pairs.csv"
 DEFAULT_METRICS_OUTPUT = ROOT_DIR / "reports" / "family_voiceprint_threshold_metrics.csv"
+DEFAULT_SAMPLE_OUTPUT = ROOT_DIR / "reports" / "family_voiceprint_sample_quality.csv"
 DEFAULT_SUMMARY_OUTPUT = ROOT_DIR / "reports" / "family_voiceprint_summary.md"
 DEFAULT_THRESHOLDS = "0.50,0.55,0.60,0.65,0.70,0.72,0.75,0.78,0.80,0.85"
 
@@ -46,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-dir", type=Path, default=DEFAULT_EVAL_DIR)
     parser.add_argument("--pair-output", type=Path, default=DEFAULT_PAIR_OUTPUT)
     parser.add_argument("--metrics-output", type=Path, default=DEFAULT_METRICS_OUTPUT)
+    parser.add_argument("--sample-output", type=Path, default=DEFAULT_SAMPLE_OUTPUT)
     parser.add_argument("--summary-output", type=Path, default=DEFAULT_SUMMARY_OUTPUT)
     parser.add_argument("--thresholds", default=DEFAULT_THRESHOLDS)
     return parser.parse_args()
@@ -165,6 +167,26 @@ def compute_threshold_metrics(
     return metrics
 
 
+def choose_recommended_threshold(metrics: list[dict[str, object]]) -> dict[str, object]:
+    """Choose a conservative threshold for family acceptance.
+
+    False accept is more dangerous than false reject for voice phishing defense.
+    Among zero-FAR candidates, prefer high accuracy and then the highest
+    threshold so family acceptance remains strict.
+    """
+
+    zero_far = [row for row in metrics if float(row["false_accept_rate"]) == 0.0]
+    candidates = zero_far or metrics
+    return max(
+        candidates,
+        key=lambda row: (
+            float(row["accuracy"]),
+            -float(row["false_reject_rate"]),
+            float(row["threshold"]),
+        ),
+    )
+
+
 def compute_leave_one_out(samples: list[AudioSample]) -> dict[str, object]:
     service = get_speaker_service()
     correct = 0
@@ -192,6 +214,58 @@ def compute_leave_one_out(samples: list[AudioSample]) -> dict[str, object]:
     }
 
 
+def compute_sample_quality(
+    samples: list[AudioSample],
+    pair_rows: list[dict[str, object]],
+    recommended_threshold: float,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+
+    for sample in samples:
+        same_scores: list[float] = []
+        diff_scores: list[float] = []
+
+        for pair in pair_rows:
+            if pair["audio_file_1"] != sample.path.name and pair["audio_file_2"] != sample.path.name:
+                continue
+
+            similarity = float(pair["similarity"])
+            if pair["label"] == "same":
+                same_scores.append(similarity)
+            else:
+                diff_scores.append(similarity)
+
+        mean_same = statistics.mean(same_scores) if same_scores else 0.0
+        min_same = min(same_scores) if same_scores else 0.0
+        max_diff = max(diff_scores) if diff_scores else 0.0
+
+        warnings: list[str] = []
+        if same_scores and min_same < recommended_threshold + 0.03:
+            warnings.append("same-speaker margin is narrow")
+        if diff_scores and max_diff > recommended_threshold - 0.05:
+            warnings.append("different-speaker score is close to threshold")
+        if same_scores and mean_same < recommended_threshold + 0.08:
+            warnings.append("same-speaker average is low")
+
+        rows.append(
+            {
+                "file": sample.path.name,
+                "speaker": sample.speaker_key,
+                "same_pair_count": len(same_scores),
+                "diff_pair_count": len(diff_scores),
+                "mean_same_similarity": round(mean_same, 4) if same_scores else "",
+                "min_same_similarity": round(min_same, 4) if same_scores else "",
+                "max_diff_similarity": round(max_diff, 4) if diff_scores else "",
+                "recommended_threshold": recommended_threshold,
+                "quality": "review" if warnings else "ok",
+                "warnings": "; ".join(warnings),
+            }
+        )
+
+    rows.sort(key=lambda row: (row["quality"] != "review", str(row["speaker"]), str(row["file"])))
+    return rows
+
+
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
@@ -207,18 +281,27 @@ def write_summary(
     samples: list[AudioSample],
     pair_rows: list[dict[str, object]],
     metrics: list[dict[str, object]],
+    sample_quality_rows: list[dict[str, object]],
     loo: dict[str, object],
 ) -> None:
     same_scores = [float(row["similarity"]) for row in pair_rows if row["label"] == "same"]
     diff_scores = [float(row["similarity"]) for row in pair_rows if row["label"] == "different"]
-    best_metric = max(
-        metrics,
-        key=lambda row: (float(row["accuracy"]), -abs(float(row["false_accept_rate"]) - float(row["false_reject_rate"]))),
-    )
+    recommended_metric = choose_recommended_threshold(metrics)
 
     min_same = min(same_scores) if same_scores else 0.0
     max_diff = max(diff_scores) if diff_scores else 0.0
     gap = round(min_same - max_diff, 4)
+    recommended_threshold = float(recommended_metric["threshold"])
+    same_margin = round(min_same - recommended_threshold, 4)
+    diff_margin = round(recommended_threshold - max_diff, 4)
+    review_rows = [row for row in sample_quality_rows if row["quality"] == "review"]
+
+    if gap >= 0.15 and float(recommended_metric["accuracy"]) >= 0.95:
+        confidence = "high"
+    elif gap >= 0.05 and float(recommended_metric["accuracy"]) >= 0.85:
+        confidence = "medium"
+    else:
+        confidence = "low"
 
     lines = [
         "# Family Voiceprint Evaluation",
@@ -243,12 +326,17 @@ def write_summary(
         f"- different max: {max_diff:.4f}" if diff_scores else "- different max: n/a",
         f"- separation gap `(min same - max different)`: {gap:.4f}",
         "",
-        "## Best Threshold In Sweep",
+        "## Recommended Threshold",
         "",
-        f"- threshold: {best_metric['threshold']}",
-        f"- accuracy: {best_metric['accuracy']}",
-        f"- false accept rate: {best_metric['false_accept_rate']}",
-        f"- false reject rate: {best_metric['false_reject_rate']}",
+        f"- recommended threshold: {recommended_metric['threshold']}",
+        f"- accuracy at threshold: {recommended_metric['accuracy']}",
+        f"- false accept rate: {recommended_metric['false_accept_rate']}",
+        f"- false reject rate: {recommended_metric['false_reject_rate']}",
+        f"- same-speaker safety margin `(min same - threshold)`: {same_margin:.4f}",
+        f"- different-speaker safety margin `(threshold - max different)`: {diff_margin:.4f}",
+        f"- confidence grade: {confidence}",
+        "",
+        "The recommendation prefers zero false-accept thresholds and then chooses the strictest threshold among the best candidates.",
         "",
         "## Leave-One-Out Identification",
         "",
@@ -257,9 +345,28 @@ def write_summary(
         f"- mean top-1 margin: {loo['mean_top1_margin']}",
         f"- min top-1 margin: {loo['min_top1_margin']}",
         "",
-        "## Interpretation",
+        "## Sample Quality",
+        "",
+        f"- samples needing review: {len(review_rows)}",
         "",
     ]
+
+    if review_rows:
+        for row in review_rows:
+            lines.append(
+                f"- {row['file']}: {row['warnings']} "
+                f"(min_same={row['min_same_similarity']}, max_diff={row['max_diff_similarity']})"
+            )
+    else:
+        lines.append("- all samples passed the current margin checks")
+
+    lines.extend(
+        [
+            "",
+        "## Interpretation",
+        "",
+        ]
+    )
 
     if gap > 0:
         lines.append("Current family samples are separable in this dataset.")
@@ -267,6 +374,11 @@ def write_summary(
         lines.append(
             "Current family samples overlap. Collect cleaner or more varied registration samples before relying on strict thresholds."
         )
+
+    lines.append("")
+    lines.append(
+        "This report cannot claim deepfake detection accuracy because no fake-family or AI-voice evaluation files are included."
+    )
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -277,15 +389,24 @@ def main() -> int:
     samples = load_samples(args.eval_dir)
     pair_rows = build_pair_rows(samples)
     metrics = compute_threshold_metrics(pair_rows, parse_thresholds(args.thresholds))
+    recommended_metric = choose_recommended_threshold(metrics)
+    sample_quality_rows = compute_sample_quality(
+        samples=samples,
+        pair_rows=pair_rows,
+        recommended_threshold=float(recommended_metric["threshold"]),
+    )
     loo = compute_leave_one_out(samples)
 
     write_csv(args.pair_output, pair_rows)
     write_csv(args.metrics_output, metrics)
-    write_summary(args.summary_output, samples, pair_rows, metrics, loo)
+    write_csv(args.sample_output, sample_quality_rows)
+    write_summary(args.summary_output, samples, pair_rows, metrics, sample_quality_rows, loo)
 
     print(f"saved pair details: {args.pair_output}")
     print(f"saved threshold metrics: {args.metrics_output}")
+    print(f"saved sample quality: {args.sample_output}")
     print(f"saved summary: {args.summary_output}")
+    print(f"recommended threshold: {recommended_metric['threshold']}")
     return 0
 
 

@@ -50,6 +50,20 @@ class FamilyCandidateResponse(BaseModel):
     max_similarity: float | None = Field(default=None, examples=[0.88])
     mean_similarity: float | None = Field(default=None, examples=[0.84])
     median_similarity: float | None = Field(default=None, examples=[0.85])
+    weighted_mean_similarity: float | None = Field(default=None, examples=[0.83])
+    weighted_median_similarity: float | None = Field(default=None, examples=[0.84])
+    profile_threshold: float | None = Field(
+        default=None,
+        description="Personalized threshold calculated from this family profile's registered samples.",
+        examples=[0.65],
+    )
+    confidence_score: float | None = Field(
+        default=None,
+        description="Profile separation confidence from 0.0 to 1.0.",
+        examples=[0.92],
+    )
+    sample_quality: str | None = Field(default=None, examples=["ok"])
+    low_quality_sample_count: int = Field(default=0, examples=[1])
 
 
 class VerifyFamilyResponse(BaseModel):
@@ -91,6 +105,16 @@ class SecureVoiceVerificationResponse(BaseModel):
         ...,
         description="Explainable IsFAM risk score from 0.0 to 1.0.",
         examples=[0.18],
+    )
+    family_confidence: float = Field(
+        ...,
+        description="Confidence that the voice belongs to the best matched family profile.",
+        examples=[0.87],
+    )
+    mismatch_confidence: float = Field(
+        ...,
+        description="Confidence that the voice should not be trusted as registered family.",
+        examples=[0.13],
     )
     final_decision: str = Field(..., examples=["trusted_family_voice"])
     decision_reasons: list[str] = Field(

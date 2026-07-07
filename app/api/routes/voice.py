@@ -52,6 +52,12 @@ def _to_candidate_response(match: FamilyVoiceMatch) -> FamilyCandidateResponse:
         max_similarity=match.max_similarity,
         mean_similarity=match.mean_similarity,
         median_similarity=match.median_similarity,
+        weighted_mean_similarity=match.weighted_mean_similarity,
+        weighted_median_similarity=match.weighted_median_similarity,
+        profile_threshold=match.profile_threshold,
+        confidence_score=match.confidence_score,
+        sample_quality=match.sample_quality,
+        low_quality_sample_count=match.low_quality_sample_count,
     )
 
 
@@ -333,6 +339,8 @@ async def verify_family_voice_secure(
             is_trusted=risk_result.is_trusted,
             risk_level=risk_result.risk_level,
             risk_score=risk_result.risk_score,
+            family_confidence=risk_result.family_confidence,
+            mismatch_confidence=risk_result.mismatch_confidence,
             final_decision=risk_result.final_decision,
             decision_reasons=risk_result.reasons,
             family_verification=_family_result_to_response(family_result),

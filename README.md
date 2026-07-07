@@ -21,16 +21,25 @@ IsFAM에서 실제로 개발한 핵심 기능은 다음과 같습니다.
 4. median similarity 기반 안정화
    최고점 하나에 의존하지 않고 max/mean/median similarity를 함께 계산해 튀는 점수의 영향을 줄입니다.
 
-5. 가족 불일치 우선 탐지
+5. 가족별 threshold 자동 산출
+   등록된 가족 voiceprint끼리의 같은 화자/다른 화자 분포를 비교해 가족 프로필별 기준값을 자동 계산합니다.
+
+6. 샘플 품질 가중치 적용
+   margin이 좁은 등록 샘플은 판단 가중치를 낮춰 품질이 좋은 voiceprint가 최종 유사도에 더 크게 반영되게 합니다.
+
+7. 가족 불일치 우선 탐지
    등록 가족과 충분히 비슷하지 않으면 AI 여부와 관계없이 가족 사칭 위험으로 판단합니다.
 
-6. anti-spoofing 보조 판단
+8. anti-spoofing 보조 판단
    딥보이스 탐지 모델의 spoof_score를 보조 신호로 사용해 위험도를 강화합니다.
 
-7. 설명 가능한 위험도 출력
-   safe/caution/danger, risk_score, final_decision, decision_reasons를 API 응답으로 제공합니다.
+9. 설명 가능한 위험도 출력
+   safe/caution/danger, risk_score, family_confidence, mismatch_confidence, final_decision, decision_reasons를 API 응답으로 제공합니다.
 
-8. 객관 평가 리포트
+10. 통화 chunk confidence 누적
+   통화 구간별 family confidence와 mismatch confidence를 품질/최근성 가중치로 누적해 실시간 판단을 안정화합니다.
+
+11. 객관 평가 리포트
    현재 등록 가족 음성으로 같은 화자/다른 화자 pair를 만들고 threshold별 정확도, FAR, FRR을 산출합니다.
 ```
 
@@ -44,6 +53,7 @@ IsFAM에서 실제로 개발한 핵심 기능은 다음과 같습니다.
 새 통화 음성
   -> speaker embedding 추출
   -> 등록 가족 voiceprint와 similarity 계산
+  -> 가족별 threshold와 샘플 품질 가중치 적용
   -> anti-spoofing spoof_score 계산
   -> IsFAM Risk Scoring
   -> safe / caution / danger
@@ -109,6 +119,8 @@ AI 합성 음성 의심 점수
 등록 샘플 수
 등록 샘플 간 점수 안정성
 통화 chunk별 반복 경고 여부
+rolling_family_confidence
+rolling_mismatch_confidence
 ```
 
 최종 출력은 다음 3단계입니다.
@@ -196,11 +208,15 @@ median_similarity
 저품질로 제외된 chunk 수
 가족으로 확인된 chunk 수
 spoof 의심 chunk 수
+누적 가족 신뢰도 rolling_family_confidence
+누적 불일치 신뢰도 rolling_mismatch_confidence
+신뢰 chunk 수 trusted_chunks
+불일치 chunk 수 mismatch_chunks
 최대 spoof score
 동일 가족이 반복 확인됐는지 여부
 ```
 
-이를 통해 짧은 구간 하나의 실수보다 전체 통화 흐름을 기준으로 판단합니다.
+이를 통해 짧은 구간 하나의 실수보다 전체 통화 흐름을 기준으로 판단합니다. 최근 chunk와 음성 품질이 좋은 chunk에는 더 높은 가중치를 주고, 가족 불일치 confidence가 반복 누적되면 anti-spoofing 점수가 낮아도 위험 상태로 전환합니다.
 
 ## 평가 기준 대응
 
@@ -223,10 +239,14 @@ AI 합성 음성인지 확인 -> Anti-Spoofing
 ```text
 다중 가족 voiceprint 집계
 median similarity 기반 가족 판단
+가족별 threshold 자동 산출
+품질 낮은 등록 샘플 가중치 완화
 등록 가족 불일치 우선 탐지
 AI 합성 점수의 보조 위험도 반영
 등록 샘플 수에 따른 신뢰도 조정
+family_confidence / mismatch_confidence 산출
 chunk 기반 누적 위험 판단
+통화 chunk별 family/mismatch confidence 누적
 판단 근거 문장 생성
 ```
 
@@ -279,9 +299,20 @@ threshold 0.65 기준 pair accuracy: 100%
 threshold 0.65 기준 false accept rate: 0%
 threshold 0.65 기준 false reject rate: 0%
 leave-one-out 화자 식별 정확도: 100% (10/10)
+추천 threshold: 0.65
+신뢰도 등급: high
 ```
 
-현재 데이터에서는 `ISFAM_SPEAKER_THRESHOLD=0.65`가 가장 안정적입니다. 단, 이 지표는 등록 가족 음성 내부 분리 성능입니다. 가짜 가족 음성이나 실제 비가족 음성이 없기 때문에 딥보이스 탐지 정확도와 외부 비가족 탐지 정확도는 별도 데이터 확보 전까지 정량화할 수 없습니다.
+현재 데이터에서는 `ISFAM_SPEAKER_THRESHOLD=0.65`가 가장 안정적입니다. 추천 기준은 false accept가 0%인 후보 중 정확도가 높고, 가족 통과 기준을 가장 엄격하게 유지하는 threshold를 선택합니다.
+
+샘플 품질 자동 점검 결과, 다음 2개 파일은 같은 화자 최소 유사도가 threshold에 가까워 추후 재녹음하면 안정성이 더 좋아집니다.
+
+```text
+mom_register_03.m4a
+mom_register_05.m4a
+```
+
+단, 현재 데이터에서는 이 두 파일을 포함해도 threshold 0.65 기준 정확도, false accept rate, false reject rate가 모두 목표 기준을 만족합니다. 이 지표는 등록 가족 음성 내부 분리 성능입니다. 가짜 가족 음성이나 실제 비가족 음성이 없기 때문에 딥보이스 탐지 정확도와 외부 비가족 탐지 정확도는 별도 데이터 확보 전까지 정량화할 수 없습니다.
 
 #### 지표 읽는 법
 
@@ -523,6 +554,15 @@ demo_samples/
 
 ```bash
 .venv/bin/python scripts/evaluate_family_voiceprints.py
+```
+
+생성되는 리포트:
+
+```text
+reports/family_voiceprint_summary.md
+reports/family_voiceprint_threshold_metrics.csv
+reports/family_voiceprint_pairs.csv
+reports/family_voiceprint_sample_quality.csv
 ```
 
 ## 현재 한계와 개선 계획
