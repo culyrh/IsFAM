@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.anti_spoofing import router as anti_spoofing_router
+from app.api.routes.auth import router as auth_router
 from app.api.routes.demo import router as demo_router
 from app.api.routes.demo import web_router as demo_web_router
 from app.api.routes.family import router as family_router
@@ -62,6 +63,7 @@ async def health() -> dict[str, str]:
 
 
 app.include_router(demo_web_router)
+app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(voice_router, prefix=settings.api_v1_prefix)
 app.include_router(family_router, prefix=settings.api_v1_prefix)
 app.include_router(anti_spoofing_router, prefix=settings.api_v1_prefix)

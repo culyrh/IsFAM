@@ -24,7 +24,7 @@ mobile/dist/
 # Model/cache outputs
 pretrained_models/
 .cache/
-models/
+/models/
 *.ckpt
 *.pt
 *.pth
